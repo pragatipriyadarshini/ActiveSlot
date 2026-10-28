@@ -1,0 +1,53 @@
+[22:49:56] $ python scripts/e2e_main_flow.py
+[22:49:56] # started 2026-10-27T22:49:56+00:00
+
+[22:49:58] ==============================================================================
+[22:49:58] 1. HAPPY PATH: book -> pay -> confirmed -> SMS
+[22:49:58] ==============================================================================
+[22:50:00] class created: 1ad3aa45-9719-40ce-a109-e4196791d9dd capacity=3
+[22:50:06] POST /bookings            -> HTTP 201 {"id": "cbccc0f7-707b-43b0-8806-dfca5d9b9b55", "state": "PENDING_PAYMENT", "amount_paise": 49900, "payment_id": null}
+[22:50:06]   PASS  booking created as PENDING_PAYMENT with a seat held
+[22:50:18] POST /bookings/{id}/pay   -> HTTP 200 {"id": "cbccc0f7-707b-43b0-8806-dfca5d9b9b55", "state": "CONFIRMED", "amount_paise": 49900, "payment_id": "7260c85a-2508-48ee-b5c2-97859ac5abe2"}
+[22:50:18]   PASS  booking CONFIRMED after payment
+[22:50:20] class state: available=2 held=0 confirmed=1 consistent=True
+[22:50:20]   PASS  seat is confirmed and counts are consistent
+[22:50:22]   PASS  exactly one confirmation SMS was sent
+
+[22:50:22] ==============================================================================
+[22:50:22] 2. FAILURE PATH: payment gateway DOWN during payment
+[22:50:22] ==============================================================================
+[22:50:31] gateway=fail, pay            -> HTTP 503 {"error": {"code": "GATEWAY_UNAVAILABLE", "message": "Payment gateway is unavailable; nothing was charged, retry with the same Idempotency-Key"}}
+[22:50:31]   PASS  clear 503 error, no crash, no hanging
+[22:50:31]   PASS  booking is still PENDING_PAYMENT (seat still held, nothing charged)
+[22:50:43] gateway restored, SAME key   -> HTTP 200 {"id": "7ceb3170-bf61-4525-99fe-f0399f77c71e", "state": "CONFIRMED", "amount_paise": 49900, "payment_id": "ecfd000d-0df9-4f69-b50b-6176e0566bd5"}
+[22:50:43]   PASS  retry with the same Idempotency-Key succeeds
+[22:50:45] payment rows: ['FAILED', 'CAPTURED']
+[22:50:45]   PASS  one CAPTURED payment (the FAILED row is the audit trail)
+[22:50:47]   PASS  gateway holds exactly one charge per paid booking (no double charge)
+
+[22:50:47] ==============================================================================
+[22:50:47] 3. FAILURE PATH: card declined, then cancel releases the seat
+[22:50:47] ==============================================================================
+[22:51:00] gateway=decline, pay         -> HTTP 402 {"error": {"code": "PAYMENT_DECLINED", "message": "Simulated card decline"}}
+[22:51:00]   PASS  402 PAYMENT_DECLINED
+[22:51:02]   PASS  class (capacity 1) is still full while the seat is held
+[22:51:05] POST /bookings/{id}/cancel  -> HTTP 200 {"id": "9e6dd732-5f64-48cc-bfcc-495822e7172e", "state": "CANCELLED", "amount_paise": 49900, "payment_id": null}
+[22:51:07]   PASS  cancel releases the seat immediately
+[22:51:09]   PASS  the freed seat can be booked by someone else
+
+[22:51:09] ==============================================================================
+[22:51:09] 4. FAILURE PATH: SMS provider down must NOT break the booking (BR7)
+[22:51:09] ==============================================================================
+[22:51:25] sms=fail, pay               -> HTTP 200 {"id": "b9a37e94-0328-4238-8a57-d7d93f1cc6ce", "state": "CONFIRMED", "amount_paise": 49900, "payment_id": "2364cbaf-c209-4031-aaf5-a62e53bca136"}
+[22:51:25]   PASS  booking is CONFIRMED even though the SMS failed
+[22:51:27]   PASS  notification service recorded the failed delivery
+
+[22:51:29] ==============================================================================
+[22:51:29] 5. VALIDATION and ERROR FORMAT
+[22:51:29] ==============================================================================
+[22:51:29] bad request                  -> HTTP 422 {"error": {"code": "VALIDATION_ERROR", "message": "Request validation failed"}}
+[22:51:29]   PASS  422 with the common error format
+[22:51:29]   PASS  cancelling a paid booking is refused (state machine, BR5)
+
+[22:51:29] RESULT: ALL CHECKS PASSED
+[22:51:29] # transcript saved to evidence\tests\e2e-main-flow-20261027-224956.txt

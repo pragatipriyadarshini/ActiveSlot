@@ -1,0 +1,30 @@
+[22:25:38] $ python scripts/challenge1_concurrency.py
+[22:25:38] # started 2026-10-27T22:25:38+00:00
+
+[22:25:38] ==============================================================================
+[22:25:38] PHASE A - BUGGY check-then-update: 20 parallel requests, capacity 5
+[22:25:38] ==============================================================================
+[22:25:43] HTTP status codes: {201: 20}
+[22:25:43] seats granted: 20 for a class with capacity 5
+[22:25:43] API : available_seats=1 held=20 consistent=False
+[22:25:43]   DB  class_sessions (capacity, available_seats): [(5, 1)]
+[22:25:43]   DB  seat_holds by state                       : [('HELD', 20)]
+[22:25:43]   PASS  BUG REPRODUCED: 20 people got a seat in a class of 5 (over-allocation)
+[22:25:43] Why: every request READ available_seats>0, then (50 ms later) WROTE a value computed from what it had read.
+[22:25:43]      Between the read and the write other requests did the same, so the check no longer meant anything.
+
+[22:25:43] ==============================================================================
+[22:25:43] PHASE B - REAL booking flow (atomic conditional UPDATE): 20 parallel requests, capacity 5
+[22:25:43] ==============================================================================
+[22:25:49] HTTP status codes: {409: 15, 201: 5}
+[22:25:49] sample rejection: {'code': 'SESSION_FULL', 'message': 'No seats left in this class', 'correlation_id': '4e17a31e-f093-4c2a-ba99-1dedaf00451b', 'details': None}
+[22:25:51] API : available_seats=0 held=5 consistent=True
+[22:25:51]   DB  class_sessions (capacity, available_seats): [(5, 0)]
+[22:25:51]   DB  seat_holds by state                       : [('HELD', 5)]
+[22:25:51]   PASS  exactly 5 requests succeeded (got 5)
+[22:25:51]   PASS  the other 15 were rejected with 409 SESSION_FULL (got 15)
+[22:25:51]   PASS  every rejection carries the meaningful code SESSION_FULL
+[22:25:51]   PASS  database state is consistent afterwards (0 free, N held)
+
+[22:25:51] RESULT: ALL CHECKS PASSED
+[22:25:51] # transcript saved to evidence\challenge-1-concurrency\concurrency-20261027-222538.txt

@@ -1,0 +1,49 @@
+[22:27:19] $ python scripts/challenge3b_time_bound_holds.py
+[22:27:19] # started 2026-10-27T22:27:19+00:00
+
+[22:27:19] ==============================================================================
+[22:27:19] 1. Cancellation releases a held seat immediately
+[22:27:19] ==============================================================================
+[22:27:25] after booking X (unpaid)                   available=1 held=1 confirmed=0 consistent=True
+[22:27:28] cancel X -> HTTP 200 {"id": "811f4005-6173-4570-ba9f-a0160e174379", "state": "CANCELLED"}
+[22:27:28] after cancelling X                         available=2 held=0 confirmed=0 consistent=True
+[22:27:28]   PASS  seat returned to the pool at once
+
+[22:27:28] ==============================================================================
+[22:27:28] 2. Set up: A pays (permanent seat), B only holds (will expire)
+[22:27:28] ==============================================================================
+[22:27:47] A confirmed, B held                        available=0 held=1 confirmed=1 consistent=True
+[22:27:47]   PASS  1 confirmed + 1 held = full
+[22:27:49]   PASS  a third member is rejected: class full
+[22:27:49] B's hold expires at 2026-10-27T22:28:15Z (in 25s). Waiting for the automatic release ...
+[22:27:54]   ... 26s left
+[22:27:59]   ... 21s left
+[22:28:04]   ... 16s left
+[22:28:09]   ... 11s left
+[22:28:14]   ... 6s left
+[22:28:19]   ... 1s left
+[22:28:21]   ... 0s left
+
+[22:28:21] ==============================================================================
+[22:28:21] 3. After expiry: B's seat is back, A's paid seat was NOT touched
+[22:28:21] ==============================================================================
+[22:28:23] after expiry                               available=1 held=0 confirmed=1 consistent=True
+[22:28:23]   PASS  B's seat released, A's paid seat kept
+[22:28:27] booking B -> EXPIRED    booking A -> CONFIRMED
+[22:28:27]   PASS  B is EXPIRED, A is still CONFIRMED
+[22:28:27] B tries to pay late -> HTTP 409 {"error": {"code": "HOLD_EXPIRED", "message": "The seat hold has expired; please book again"}}
+[22:28:27]   PASS  late payment is refused (and nothing is charged)
+[22:28:29]   PASS  B can book again (BR3 only blocks ACTIVE bookings)
+
+[22:28:29] ==============================================================================
+[22:28:29] 4. The expiry job is safe to run twice, even at the same moment
+[22:28:29] ==============================================================================
+[22:28:32] one 1-second hold taken                    available=2 held=1 confirmed=0 consistent=True
+[22:28:35] 3 simultaneous manual runs released: [0, 0, 1]
+[22:28:37] after all runs (+ background sweeper)      available=3 held=0 confirmed=0 consistent=True
+[22:28:37]   PASS  the single expired hold was released at most once by the manual runs
+[22:28:37]   PASS  available_seats is 3, NOT 4: no double release
+[22:28:38]   DB seat_holds by state: [('EXPIRED', 1)]
+
+[22:28:38] RESULT: ALL CHECKS PASSED
+[22:28:38] # transcript saved to evidence\challenge-3b-time-bound-holds\holds-20261027-222719.txt

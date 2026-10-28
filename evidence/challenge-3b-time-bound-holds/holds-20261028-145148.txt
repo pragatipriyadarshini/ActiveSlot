@@ -1,0 +1,95 @@
+[14:51:48] $ python scripts/challenge3b_time_bound_holds.py
+[14:51:48] # started 2026-10-28T14:51:48+00:00
+
+[14:51:48] ==============================================================================
+[14:51:48] 1. Cancellation releases a held seat immediately
+[14:51:48] ==============================================================================
+[14:51:55] after booking X (unpaid)                   available=1 held=1 confirmed=0 consistent=True
+[14:51:58] cancel X -> HTTP 200 {"id": "f02253d2-8511-4400-bc24-9c59e852d3e3", "state": "CANCELLED"}
+[14:51:58] after cancelling X                         available=2 held=0 confirmed=0 consistent=True
+[14:51:58]   PASS  seat returned to the pool at once
+
+[14:51:58] ==============================================================================
+[14:51:58] 2. Set up: A pays (permanent seat), B only holds (will expire)
+[14:51:58] ==============================================================================
+[14:52:18] A confirmed, B held                        available=0 held=1 confirmed=1 consistent=True
+[14:52:18]   PASS  1 confirmed + 1 held = full
+[14:52:20]   PASS  a third member is rejected: class full
+[14:52:20] B's hold expires at 2026-10-28T14:57:16Z (in 295s). Waiting for the automatic release ...
+[14:52:25]   ... 296s left
+[14:52:30]   ... 291s left
+[14:52:35]   ... 286s left
+[14:52:40]   ... 281s left
+[14:52:45]   ... 276s left
+[14:52:50]   ... 271s left
+[14:52:55]   ... 266s left
+[14:53:00]   ... 261s left
+[14:53:05]   ... 256s left
+[14:53:10]   ... 251s left
+[14:53:15]   ... 246s left
+[14:53:20]   ... 241s left
+[14:53:25]   ... 236s left
+[14:53:30]   ... 231s left
+[14:53:35]   ... 226s left
+[14:53:40]   ... 221s left
+[14:53:45]   ... 216s left
+[14:53:50]   ... 211s left
+[14:53:55]   ... 206s left
+[14:54:00]   ... 201s left
+[14:54:05]   ... 196s left
+[14:54:10]   ... 191s left
+[14:54:15]   ... 186s left
+[14:54:20]   ... 181s left
+[14:54:25]   ... 176s left
+[14:54:30]   ... 171s left
+[14:54:35]   ... 166s left
+[14:54:40]   ... 161s left
+[14:54:45]   ... 156s left
+[14:54:50]   ... 151s left
+[14:54:55]   ... 146s left
+[14:55:00]   ... 141s left
+[14:55:05]   ... 136s left
+[14:55:10]   ... 131s left
+[14:55:15]   ... 126s left
+[14:55:20]   ... 121s left
+[14:55:25]   ... 116s left
+[14:55:30]   ... 111s left
+[14:55:35]   ... 106s left
+[14:55:40]   ... 101s left
+[14:55:45]   ... 96s left
+[14:55:50]   ... 91s left
+[14:55:55]   ... 86s left
+[14:56:00]   ... 81s left
+[14:56:05]   ... 76s left
+[14:56:10]   ... 71s left
+[14:56:15]   ... 66s left
+[14:56:20]   ... 61s left
+[14:56:25]   ... 56s left
+[14:56:30]   ... 51s left
+[14:56:35]   ... 46s left
+[14:56:40]   ... 41s left
+[14:56:45]   ... 36s left
+[14:56:50]   ... 31s left
+[14:56:55]   ... 26s left
+[14:57:00]   ... 21s left
+[14:57:05]   ... 16s left
+[14:57:10]   ... 11s left
+[14:57:16]   ... 5s left
+[14:57:21]   ... 0s left
+[14:57:22]   ... 0s left
+
+[14:57:22] ==============================================================================
+[14:57:22] 3. After expiry: B's seat is back, A's paid seat was NOT touched
+[14:57:22] ==============================================================================
+[14:57:24] after expiry                               available=0 held=1 confirmed=1 consistent=True
+[14:57:24]   FAIL  B's seat released, A's paid seat kept
+[14:57:29] booking B -> PENDING_PAYMENT    booking A -> CONFIRMED
+[14:57:29]   FAIL  B is EXPIRED, A is still CONFIRMED
+[14:57:32] B tries to pay late -> HTTP 409 {"error": {"code": "HOLD_EXPIRED", "message": "The seat hold has expired; please book again"}}
+[14:57:32]   PASS  late payment is refused (and nothing is charged)
+[14:57:34]   FAIL  B can book again (BR3 only blocks ACTIVE bookings)
+
+[14:57:34] ==============================================================================
+[14:57:34] 4. The expiry job is safe to run twice, even at the same moment
+[14:57:34] ==============================================================================
+[14:57:36] one 1-second hold taken                    available=2 held=1 confirmed=0 consistent=True

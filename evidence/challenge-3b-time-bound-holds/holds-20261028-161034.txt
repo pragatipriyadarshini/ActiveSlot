@@ -1,0 +1,31 @@
+[16:10:34] $ python scripts/challenge3b_time_bound_holds.py
+[16:10:34] # started 2026-10-28T16:10:34+00:00
+
+[16:10:34] ==============================================================================
+[16:10:34] 1. Cancellation releases a held seat immediately
+[16:10:34] ==============================================================================
+[16:10:41] after booking X (unpaid)                   available=1 held=1 confirmed=0 consistent=True
+[16:10:43] cancel X -> HTTP 200 {"id": "ee6beebc-62f8-4c87-9dcc-20118cfb1eff", "state": "CANCELLED"}
+[16:10:43] after cancelling X                         available=2 held=0 confirmed=0 consistent=True
+[16:10:43]   PASS  seat returned to the pool at once
+
+[16:10:43] ==============================================================================
+[16:10:43] 2. Set up: A pays (permanent seat), B only holds (will expire)
+[16:10:43] ==============================================================================
+[16:11:03] A confirmed, B held                        available=0 held=1 confirmed=1 consistent=True
+[16:11:03]   PASS  1 confirmed + 1 held = full
+[16:11:05]   PASS  a third member is rejected: class full
+[16:11:05] B's hold expires at 2026-10-28T16:16:01Z (in 295s). Waiting for the automatic release ...
+[16:11:06]   ... 300s left
+[16:11:07]   ... 299s left
+[16:11:08]   ... 298s left
+[16:11:09]   ... 297s left
+[16:11:10]   ... 296s left
+[16:11:11]   ... 295s left
+[16:11:12]   ... 294s left
+[16:11:13]   ... 293s left
+[16:11:14]   ... 292s left
+[16:11:15]   ... 291s left
+[16:11:16]   ... 290s left
+[16:11:17]   ... 289s left
+[16:11:18]   ... 288s left

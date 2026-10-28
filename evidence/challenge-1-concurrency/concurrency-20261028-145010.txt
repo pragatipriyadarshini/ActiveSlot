@@ -1,0 +1,24 @@
+[14:50:10] $ python scripts/challenge1_concurrency.py
+[14:50:10] # started 2026-10-28T14:50:10+00:00
+
+[14:50:10] ==============================================================================
+[14:50:10] PHASE A test: 30 parallel requests, capacity 10
+[14:50:10] ==============================================================================
+[14:50:14] HTTP status codes: {404: 30}
+[14:50:14] holds-naive endpoint not found: start schedule-service with ENABLE_NAIVE_DEMO=true to run phase A
+
+[14:50:14] ==============================================================================
+[14:50:14] PHASE B test: 30 parallel requests, capacity 10
+[14:50:14] ==============================================================================
+[14:50:21] HTTP status codes: {409: 20, 201: 10}
+[14:50:21] sample rejection: {'code': 'SESSION_FULL', 'message': 'No seats left in this class', 'correlation_id': 'e716e762-5a26-4dce-a36b-faa1716b55be', 'details': None}
+[14:50:23] API : available_seats=0 held=10 consistent=True
+[14:50:23]   DB  class_sessions (capacity, available_seats): [(10, 0)]
+[14:50:23]   DB  seat_holds by state                       : [('HELD', 10)]
+[14:50:23]   PASS  exactly 10 requests succeeded (got 10)
+[14:50:23]   PASS  the other 20 were rejected with 409 SESSION_FULL (got 20)
+[14:50:23]   PASS  every rejection carries the meaningful code SESSION_FULL
+[14:50:23]   PASS  database state is consistent afterwards (0 free, N held)
+
+[14:50:23] RESULT: ALL CHECKS PASSED
+[14:50:23] # transcript saved to evidence\challenge-1-concurrency\concurrency-20261028-145010.txt
