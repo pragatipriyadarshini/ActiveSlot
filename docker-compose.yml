@@ -1,0 +1,20 @@
+# Assignment 1 only needs PostgreSQL in Docker; the services run directly from Python (see README).
+# Assignment 2 will add a Dockerfile per service and put them in this file / Minikube.
+services:
+  postgres:
+    image: postgres:16
+    container_name: fitslot-postgres
+    environment:
+      POSTGRES_PASSWORD: postgres        # superuser, used only by the init script
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  pgdata:

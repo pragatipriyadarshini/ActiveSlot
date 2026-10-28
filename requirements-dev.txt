@@ -1,0 +1,8 @@
+# One virtual environment for everything (services + tests + scripts) to keep local setup simple.
+# Each service also has its own requirements.txt so it can be built on its own (needed for Assignment 2).
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+httpx>=0.27
+pytest>=8.0
