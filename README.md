@@ -1,100 +1,333 @@
 # FitSlot
 
-FitSlot is a fitness-class booking demo built from four services and a mock gateway. A member can find a class, reserve a seat, pay, and receive a confirmation notification.
+FitSlot is a microservices-based fitness class booking platform that demonstrates distributed system patterns through a realistic booking workflow.
 
-The project demonstrates seat concurrency, payment idempotency, expiring holds, service-to-service requests, and failure handling.
+A member can:
 
-## Services
+- Browse available fitness classes
+- Reserve a seat
+- Complete payment
+- Receive a confirmation notification
 
-Schedule (8001) - Owns classes, seat availability, and seat holds 
-Booking (8002) - Coordinates booking, payment, and confirmation 
-Payment (8003) - Records payments and prevents duplicate charges
-Notification (8004) - Sends and records SMS notifications
-Mock gateway (8005) - Simulates payment and SMS providers 
+The project showcases:
 
-PostgreSQL uses port 5432 when you choose the database-backed setup below.
+- Seat reservation concurrency handling
+- Payment idempotency
+- Time-bound seat holds and expiration
+- Service-to-service communication
+- Failure handling and recovery
+- Database isolation between services
 
-The booking service coordinates the main flow:
+---
 
-1. Schedule holds a seat.
-2. Payment charges the member.
-3. Schedule confirms the seat.
-4. Notification sends a confirmation SMS.
+## Architecture
 
-Each service owns its database. Services communicate over HTTP and do not read one another's tables.
+### Services
 
-## Run locally
+| Service | Port | Responsibility |
+|----------|------|---------------|
+| Schedule Service | 8001 | Manages fitness classes, seat availability, and seat holds |
+| Booking Service | 8002 | Coordinates bookings, payments, and confirmations |
+| Payment Service | 8003 | Processes payments and prevents duplicate charges |
+| Notification Service | 8004 | Sends and records SMS notifications |
+| Mock Gateway | 8005 | Simulates payment and SMS providers |
 
-Requirements:
-Python 3.10 or later. 
-Docker (optional): the local mode uses SQLite and does not need Docker or PostgreSQL.
+> PostgreSQL runs on port **5432** when using the database-backed deployment.
 
-Create a virtual environment and install the project dependencies:
+---
+
+## Booking Workflow
+
+The Booking Service orchestrates the complete reservation flow:
+
+1. Schedule Service places a seat hold.
+2. Payment Service processes the payment.
+3. Schedule Service confirms the seat reservation.
+4. Notification Service sends a confirmation SMS.
+
+Each service owns its own database and communicates exclusively through HTTP APIs. No service directly accesses another service's database.
+
+---
+
+## Running Locally
+
+### Requirements
+
+- Python 3.10+
+- Docker (optional)
+
+> Local mode uses SQLite and does not require Docker or PostgreSQL.
+
+### Create a Virtual Environment
+
+#### Windows
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 ```
 
-On macOS or Linux, activate the environment with `source .venv/bin/activate`.
+#### macOS / Linux
 
-### Without Docker
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+```
 
-From the project directory, run:
---- python scripts\run_all.py --sqlite
+---
 
-This starts all five processes and stores each service's data in `.data\`. The local databases are reset each time this command starts.
+## Run with SQLite (No Docker)
 
-### Start with PostgreSQL
-For database-isolation checks and concurrency evidence:
+```powershell
+python scripts\run_all.py --sqlite
+```
+
+This starts all five services and stores data under:
+
+```text
+.data/
+```
+
+The SQLite databases are recreated each time the launcher starts.
+
+---
+
+## Run with PostgreSQL
+
+For database isolation checks and concurrency demonstrations:
+
+```powershell
 docker compose up -d
 docker compose ps
+
 python scripts\run_all.py
+```
 
-Compose starts PostgreSQL on port 5432. 
-The initialization script creates a separate database and user for each service. To use a PostgreSQL server other than the included Compose instance, set the connection URLs in each service's `.env` file.
+The included Docker Compose setup automatically:
 
-The launcher reads `services\<service>\.env`, or `.env.example` if no `.env` exists. Use `--set SERVICE:KEY=VALUE` to override a setting for one run. For example:
+- Starts PostgreSQL on port **5432**
+- Creates separate databases for each service
+- Creates dedicated database users per service
 
+To use an external PostgreSQL instance, update the `DATABASE_URL` values inside each service's `.env` file.
 
-Open the API documentation at `http://localhost:8002/docs`. Each service also has a `/docs` page and a `/health` endpoint.
+---
 
-Press Ctrl+C in the launcher terminal to stop the services. If using Compose, stop PostgreSQL separately with `docker compose down`; add `-v` only if you also want to remove its stored data.
+## Environment Configuration
 
-## Tests and demo scripts
+The launcher loads configuration from:
 
-With the services running, these scripts exercise the end-to-end flow and distributed-systems scenarios:
+```text
+services/<service>/.env
+```
 
-python scripts\seed.py ---- generate clsses
-python scripts\e2e_main_flow.py - end-to-end-service-runs
+If `.env` is not found, it automatically falls back to:
+
+```text
+services/<service>/.env.example
+```
+
+You can override settings for a single run:
+
+```powershell
+python scripts\run_all.py --set PAYMENT:LOG_LEVEL=DEBUG
+```
+
+---
+
+## API Documentation
+
+After startup, open:
+
+- Booking Service: http://localhost:8002/docs
+- Schedule Service: http://localhost:8001/docs
+- Payment Service: http://localhost:8003/docs
+- Notification Service: http://localhost:8004/docs
+
+Additional endpoints:
+
+- `/docs` – Interactive Swagger UI
+- `/health` – Health check endpoint
+
+---
+
+## Stopping Services
+
+Press:
+
+```text
+Ctrl + C
+```
+
+in the launcher terminal.
+
+If PostgreSQL was started using Docker Compose:
+
+```powershell
+docker compose down
+```
+
+To also remove stored database volumes:
+
+```powershell
+docker compose down -v
+```
+
+---
+
+## Tests & Demo Scenarios
+
+With all services running, execute the following scripts:
+
+### Seed Sample Data
+
+```powershell
+python scripts\seed.py
+```
+
+### End-to-End Booking Flow
+
+```powershell
+python scripts\e2e_main_flow.py
+```
+
+### Concurrency Challenge
+
+```powershell
 python scripts\challenge1_concurrency.py
+```
+
+### Payment Idempotency Challenge
+
+```powershell
 python scripts\challenge2_idempotency.py
+```
+
+### Time-Bound Seat Hold Challenge
+
+```powershell
 python scripts\challenge3b_time_bound_holds.py
+```
+
+### Database Isolation Verification
+
+```powershell
 python scripts\check_db_isolation.py
+```
 
-The scripts save timestamped output under `evidence\`. 
-Use PostgreSQL for concurrency and database-isolation evidence. 
-SQLite serializes writes differently, so it is useful for local development but not for demonstrating the naive over-allocation race.
+All scripts generate timestamped outputs inside:
 
-## Configuration
+```text
+evidence/
+```
 
-Each service reads its settings from environment variables. Defaults are in the service's `.env.example`; copy that file to `.env` to customize it.
+> For accurate concurrency and isolation demonstrations, use PostgreSQL. SQLite handles write concurrency differently and is intended primarily for local development.
 
-| Service | Main settings |
-|---|---|
+---
+
+## Configuration Reference
+
+Each service reads configuration from environment variables.
+
+Defaults are provided in the corresponding `.env.example` file.
+
+| Service | Key Settings |
+|----------|-------------|
 | Schedule | `DATABASE_URL`, `EXPIRY_SWEEP_INTERVAL_SECONDS`, `ENABLE_NAIVE_DEMO` |
 | Booking | `DATABASE_URL`, service URLs, `HOLD_SECONDS`, request timeouts |
-| Payment | `DATABASE_URL`, `GATEWAY_URL`, gateway timeout, idempotency wait |
+| Payment | `DATABASE_URL`, `GATEWAY_URL`, gateway timeout, idempotency wait settings |
 | Notification | `DATABASE_URL`, `PROVIDER_URL`, provider timeout |
-| Mock gateway | Payment/SMS modes and simulated delays |
+| Mock Gateway | Payment and SMS simulation settings |
 
-All services also support `PORT`, `SERVICE_NAME`, and `LOG_LEVEL`. The default ports are listed above.
+All services also support:
 
-## Project layout
+```text
+PORT
+SERVICE_NAME
+LOG_LEVEL
+```
 
-- Each service's `app/` keeps the code in a few modules: `main.py` defines validation, HTTP routes, and startup; `logic.py` handles service behavior; `models.py` contains database setup and tables; `common.py` holds logging, errors, and time helpers. The mock gateway only needs `main.py` and `common.py`.
-- `services/` also contains each service's tests and `.env.example`.
-- `scripts/` contains the launcher, demo flows, challenge checks, and OpenAPI exporter.
-- `infra/postgres/init.sql` creates the four service databases and users.
-- `docs/` contains exported API specifications and sample run outputs.
-- `evidence/` contains example outputs and transcripts from demo runs.
+---
+
+## Project Structure
+
+```text
+FitSlot/
+│
+├── services/
+│   ├── schedule/
+│   ├── booking/
+│   ├── payment/
+│   ├── notification/
+│   └── mock_gateway/
+│
+├── scripts/
+├── docs/
+├── evidence/
+└── infra/
+```
+
+### Service Layout
+
+Each service follows a consistent structure:
+
+- `main.py` – API routes, request validation, startup configuration
+- `logic.py` – Core business logic
+- `models.py` – Database models and persistence
+- `common.py` – Shared utilities, logging, errors, and time helpers
+
+The Mock Gateway service uses only:
+
+- `main.py`
+- `common.py`
+
+---
+
+## Supporting Directories
+
+### `scripts/`
+
+Contains:
+
+- Service launcher
+- Test and demo scenarios
+- Challenge scripts
+- OpenAPI exporter
+
+### `infra/postgres/`
+
+Contains:
+
+- `init.sql` for creating service databases and users
+
+### `docs/`
+
+Contains:
+
+- Exported OpenAPI specifications
+- Example outputs
+- Documentation assets
+
+### `evidence/`
+
+Contains:
+
+- Demo transcripts
+- Challenge outputs
+- Validation and testing artifacts
+
+---
+
+## Key Design Principles
+
+- Service ownership of data
+- Database-per-service architecture
+- HTTP-based communication
+- Idempotent payment processing
+- Concurrent seat reservation handling
+- Time-limited reservation holds
+- Failure isolation and recovery
+
+Built as a learning project to demonstrate practical microservice architecture patterns in a fitness studio booking domain.
