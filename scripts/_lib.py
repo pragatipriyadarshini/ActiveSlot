@@ -15,9 +15,26 @@ BOOKING = os.environ.get("BOOKING_URL", "http://localhost:8002")
 PAYMENT = os.environ.get("PAYMENT_URL", "http://localhost:8003")
 NOTIFY = os.environ.get("NOTIFICATION_URL", "http://localhost:8004")
 GATEWAY = os.environ.get("GATEWAY_URL", "http://localhost:8005")
-SCHEDULE_DB_URL = os.environ.get("SCHEDULE_DB_URL", "postgresql://schedule_user:schedule_pw@localhost:5432/schedule_db")
-BOOKING_DB_URL = os.environ.get("BOOKING_DB_URL", "postgresql://booking_user:booking_pw@localhost:5432/booking_db")
-PAYMENT_DB_URL = os.environ.get("PAYMENT_DB_URL", "postgresql://payment_user:payment_pw@localhost:5432/payment_db")
+#SCHEDULE_DB_URL = os.environ.get("SCHEDULE_DB_URL", "postgresql://schedule_user:schedule_pw@localhost:5432/schedule_db")
+#BOOKING_DB_URL = os.environ.get("BOOKING_DB_URL", "postgresql://booking_user:booking_pw@localhost:5432/booking_db")
+#PAYMENT_DB_URL = os.environ.get("PAYMENT_DB_URL", "postgresql://payment_user:payment_pw@localhost:5432/payment_db")
+
+def _load_dotenv():
+    path = ROOT / ".env"
+    if path.exists():
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
+_load_dotenv()
+
+def _db_url(s):
+    return os.environ.get(f"{s.upper()}_DB_URL") or (
+        f"postgresql://{s}_user:{os.environ.get(s.upper() + '_DB_PASSWORD', '')}@localhost:5432/{s}_db")
+
+SCHEDULE_DB_URL, BOOKING_DB_URL, PAYMENT_DB_URL = _db_url("schedule"), _db_url("booking"), _db_url("payment")
 
 http = httpx.Client(timeout=30, limits=httpx.Limits(max_connections=100))
 

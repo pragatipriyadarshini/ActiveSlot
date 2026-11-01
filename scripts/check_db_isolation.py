@@ -9,7 +9,7 @@ import psycopg2
 from _lib import Report
 
 HOST, PORT = os.environ.get("PGHOST", "localhost"), os.environ.get("PGPORT", "5432")
-USERS = {"schedule": "schedule_pw", "booking": "booking_pw", "payment": "payment_pw", "notification": "notification_pw"}
+USERS = {n: os.environ.get(f"{n.upper()}_DB_PASSWORD", "") for n in ("schedule", "booking", "payment", "notification")}
 r = Report("tests", "db-isolation")
 for user in USERS:
     for db in USERS:
