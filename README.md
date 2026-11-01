@@ -47,14 +47,12 @@ The Booking Service orchestrates the complete reservation flow:
 
 Each service owns its own database and communicates exclusively through HTTP APIs. No service directly accesses another service's database.
 
----
-
 ## Running Locally
 
 ### Requirements
 
 - Python 3.10+
-- Docker (optional)
+- Docker 
 
 > Local mode uses SQLite and does not require Docker or PostgreSQL.
 
@@ -84,12 +82,7 @@ pip install -r requirements-dev.txt
 python scripts\run_all.py --sqlite
 ```
 
-This starts all five services and stores data under:
-
-```text
-.data/
-```
-
+This starts all five services and stores data under: .data/
 The SQLite databases are recreated each time the launcher starts.
 
 ---
@@ -98,21 +91,16 @@ The SQLite databases are recreated each time the launcher starts.
 
 For database isolation checks and concurrency demonstrations:
 
-```powershell
 docker compose up -d
 docker compose ps
 
 python scripts\run_all.py
-```
 
 The included Docker Compose setup automatically:
 
 - Starts PostgreSQL on port **5432**
 - Creates separate databases for each service
 - Creates dedicated database users per service
-
-To use an external PostgreSQL instance, update the `DATABASE_URL` values inside each service's `.env` file.
-
 ---
 
 ## Environment Configuration
@@ -231,15 +219,12 @@ evidence/
 
 Each service reads configuration from environment variables.
 
-Defaults are provided in the corresponding `.env.example` file.
-
-| Service | Key Settings |
-|----------|-------------|
-| Schedule | `DATABASE_URL`, `EXPIRY_SWEEP_INTERVAL_SECONDS`, `ENABLE_NAIVE_DEMO` |
-| Booking | `DATABASE_URL`, service URLs, `HOLD_SECONDS`, request timeouts |
-| Payment | `DATABASE_URL`, `GATEWAY_URL`, gateway timeout, idempotency wait settings |
-| Notification | `DATABASE_URL`, `PROVIDER_URL`, provider timeout |
-| Mock Gateway | Payment and SMS simulation settings |
+| Service > Key Settings |
+| Schedule > `DATABASE_URL`, `EXPIRY_SWEEP_INTERVAL_SECONDS`, `ENABLE_NAIVE_DEMO` 
+| Booking > `DATABASE_URL`, service URLs, `HOLD_SECONDS`, request timeouts 
+| Payment > `DATABASE_URL`, `GATEWAY_URL`, gateway timeout, idempotency wait settings 
+| Notification > `DATABASE_URL`, `PROVIDER_URL`, provider timeout 
+| Mock Gateway > Payment and SMS simulation settings 
 
 All services also support:
 
@@ -254,7 +239,7 @@ LOG_LEVEL
 ## Project Structure
 
 ```text
-FitSlot/
+ActiveSlot/
 │
 ├── services/
 │   ├── schedule/
@@ -329,5 +314,3 @@ Contains:
 - Concurrent seat reservation handling
 - Time-limited reservation holds
 - Failure isolation and recovery
-
-Built as a learning project to demonstrate practical microservice architecture patterns in a fitness studio booking domain.
