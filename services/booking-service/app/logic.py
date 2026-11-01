@@ -43,6 +43,7 @@ def _call(method: str, url: str, timeout: float, headers: dict | None = None, **
             method, url, timeout=timeout, headers=outbound_headers(headers), **kwargs
         )
     except httpx.HTTPError as exc:
+        log.warning("upstream_unavailable", extra={"url": url, "error": type(exc).__name__})
         raise UpstreamUnavailable(type(exc).__name__) from exc
     if response.status_code >= 400:
         try:
