@@ -1,20 +1,84 @@
-# Assignment 1 only needs PostgreSQL in Docker; the services run directly from Python (see README).
-# Assignment 2 will add a Dockerfile per service and put them in this file / Minikube.
+x-service: &service
+  restart: unless-stopped
+
 services:
   postgres:
     image: postgres:16
     container_name: fitslot-postgres
     environment:
-      POSTGRES_PASSWORD: postgres        # superuser, used only by the init script
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copy .env.example to .env and set POSTGRES_PASSWORD}
+      SCHEDULE_DB_PASSWORD: ${SCHEDULE_DB_PASSWORD:?set SCHEDULE_DB_PASSWORD in .env}
+      BOOKING_DB_PASSWORD: ${BOOKING_DB_PASSWORD:?set BOOKING_DB_PASSWORD in .env}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?set PAYMENT_DB_PASSWORD in .env}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?set NOTIFICATION_DB_PASSWORD in .env}
+    ports: ["127.0.0.1:5432:5432"]
     volumes:
-      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./infra/postgres/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 3s
       timeout: 3s
       retries: 20
+
+  mock-gateway:
+    <<: *service
+    build: ./services/mock-gateway
+    image: fitslot/mock-gateway:1.0
+    ports: ["8005:8005"]
+
+  schedule-service:
+    <<: *service
+    build: ./services/schedule-service
+    image: fitslot/schedule-service:1.0
+    environment:
+      DATABASE_URL: postgresql+psycopg2://schedule_user:${SCHEDULE_DB_PASSWORD}@postgres:5432/schedule_db
+      EXPIRY_SWEEP_INTERVAL_SECONDS: ${EXPIRY_SWEEP_INTERVAL_SECONDS:-2}
+      ENABLE_NAIVE_DEMO: ${ENABLE_NAIVE_DEMO:-false}
+    depends_on:
+      postgres: {condition: service_healthy}
+    ports: ["8001:8001"]
+
+  payment-service:
+    <<: *service
+    build: ./services/payment-service
+    image: fitslot/payment-service:1.0
+    environment:
+      DATABASE_URL: postgresql+psycopg2://payment_user:${PAYMENT_DB_PASSWORD}@postgres:5432/payment_db
+      GATEWAY_URL: http://mock-gateway:8005
+    depends_on:
+      postgres: {condition: service_healthy}
+      mock-gateway: {condition: service_healthy}
+    ports: ["8003:8003"]
+
+  notification-service:
+    <<: *service
+    build: ./services/notification-service
+    image: fitslot/notification-service:1.0
+    environment:
+      DATABASE_URL: postgresql+psycopg2://notification_user:${NOTIFICATION_DB_PASSWORD}@postgres:5432/notification_db
+      PROVIDER_URL: http://mock-gateway:8005
+    depends_on:
+      postgres: {condition: service_healthy}
+      mock-gateway: {condition: service_healthy}
+    ports: ["8004:8004"]
+
+  booking-service:
+    <<: *service
+    build: ./services/booking-service
+    image: fitslot/booking-service:1.0
+    environment:
+      DATABASE_URL: postgresql+psycopg2://booking_user:${BOOKING_DB_PASSWORD}@postgres:5432/booking_db
+      SCHEDULE_SERVICE_URL: http://schedule-service:8001
+      PAYMENT_SERVICE_URL: http://payment-service:8003
+      NOTIFICATION_SERVICE_URL: http://notification-service:8004
+      HOLD_SECONDS: ${HOLD_SECONDS:-30}
+    depends_on:
+      postgres: {condition: service_healthy}
+      schedule-service: {condition: service_healthy}
+      payment-service: {condition: service_healthy}
+      notification-service: {condition: service_healthy}
+    ports: ["8002:8002"]
+
 volumes:
   pgdata:
