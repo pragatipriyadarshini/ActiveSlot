@@ -1,0 +1,30 @@
+[16:08:50] $ python scripts/challenge1_concurrency.py
+[16:08:50] # started 2026-11-02T16:08:50+00:00
+
+[16:08:50] ==============================================================================
+[16:08:50] PHASE A test: 30 parallel requests, capacity 10
+[16:08:50] ==============================================================================
+[16:08:50] HTTP status codes: {201: 30}
+[16:08:50] seats granted: 30 for a class with capacity 10
+[16:08:50] API : available_seats=7 held=30 consistent=False
+[16:08:55]   DB  class_sessions (capacity, available_seats): [(10, 7)]
+[16:08:55]   DB  seat_holds by state                       : [('HELD', 30)]
+[16:08:55]   PASS  BUG REPRODUCED: 30 people got a seat in a class of 10 (over-allocation)
+[16:08:55] Why: every request READ available_seats>0, then (50 ms later) WROTE a value computed from what it had read.
+[16:08:55]      Between the read and the write other requests did the same, so the check no longer meant anything.
+
+[16:08:55] ==============================================================================
+[16:08:55] PHASE B test: 30 parallel requests, capacity 10
+[16:08:55] ==============================================================================
+[16:08:57] HTTP status codes: {201: 10, 409: 20}
+[16:08:57] sample rejection: {'code': 'SESSION_FULL', 'message': 'No seats left in this class', 'correlation_id': '38aef401-7a30-41d9-a1ff-f9ada979f272', 'details': None}
+[16:08:57] API : available_seats=0 held=10 consistent=True
+[16:09:01]   DB  class_sessions (capacity, available_seats): [(10, 0)]
+[16:09:01]   DB  seat_holds by state                       : [('HELD', 10)]
+[16:09:01]   PASS  exactly 10 requests succeeded (got 10)
+[16:09:01]   PASS  the other 20 were rejected with 409 SESSION_FULL (got 20)
+[16:09:01]   PASS  every rejection carries the meaningful code SESSION_FULL
+[16:09:01]   PASS  database state is consistent afterwards (0 free, N held)
+
+[16:09:01] RESULT: ALL CHECKS PASSED
+[16:09:01] # transcript saved to evidence\challenge-1-concurrency\concurrency-20261102-160850.txt

@@ -1,0 +1,21 @@
+[16:06:51] $ python scripts/check_db_isolation.py
+[16:06:51] # started 2026-11-02T16:06:51+00:00
+[16:06:53]   PASS  schedule_user -> schedule_db : CONNECTED
+[16:06:55]   PASS  schedule_user -> booking_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:06:57]   PASS  schedule_user -> payment_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:06:59]   PASS  schedule_user -> notification_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:01]   PASS  booking_user -> schedule_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:03]   PASS  booking_user -> booking_db : CONNECTED
+[16:07:05]   PASS  booking_user -> payment_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:08]   PASS  booking_user -> notification_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:10]   PASS  payment_user -> schedule_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:12]   PASS  payment_user -> booking_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:14]   PASS  payment_user -> payment_db : CONNECTED
+[16:07:16]   PASS  payment_user -> notification_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:18]   PASS  notification_user -> schedule_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:20]   PASS  notification_user -> booking_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:22]   PASS  notification_user -> payment_db : REFUSED  (DETAIL:  User does not have CONNECT privilege.)
+[16:07:24]   PASS  notification_user -> notification_db : CONNECTED
+
+[16:07:24] RESULT: ALL CHECKS PASSED
+[16:07:24] # transcript saved to evidence\tests\db-isolation-20261102-160651.txt

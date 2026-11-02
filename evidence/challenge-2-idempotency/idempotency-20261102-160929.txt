@@ -1,0 +1,50 @@
+[16:09:29] $ python scripts/challenge2_idempotency.py
+[16:09:29] # started 2026-11-02T16:09:29+00:00
+
+[16:09:30] ==============================================================================
+[16:09:30] A. Sequential repeat (payment-service, same key twice)
+[16:09:30] ==============================================================================
+[16:09:30] 1st call  : HTTP 201 {"id": "7f9d797a-4d85-4e24-af24-41c084bc1855", "booking_id": "bk-aa21ea3d", "member_id": "member-1", "amount_paise": 49900, "state": "CAPTURED", "gateway_ref": "gw_d608746f419a", "created_at": "2026-11-02T16:09:30Z"}   Idempotent-Replayed=None
+[16:09:30] 2nd call  : HTTP 201 {"id": "7f9d797a-4d85-4e24-af24-41c084bc1855", "booking_id": "bk-aa21ea3d", "member_id": "member-1", "amount_paise": 49900, "state": "CAPTURED", "gateway_ref": "gw_d608746f419a", "created_at": "2026-11-02T16:09:30Z"}   Idempotent-Replayed=true
+[16:09:30]   PASS  same key -> identical response
+[16:09:30]   PASS  second response is flagged as a replay
+[16:09:30]   PASS  the gateway was called ONCE (charge_calls=1)
+
+[16:09:30] ==============================================================================
+[16:09:30] B. Same key, DIFFERENT payload must be rejected
+[16:09:30] ==============================================================================
+[16:09:30] reuse key with other amount: HTTP 422 {"error": {"code": "IDEMPOTENCY_KEY_REUSED", "message": "This Idempotency-Key was already used with a different request payload"}}
+[16:09:30]   PASS  422 IDEMPOTENCY_KEY_REUSED
+[16:09:30]   PASS  still only one gateway call
+
+[16:09:30] ==============================================================================
+[16:09:30] C. TWO-OR-MORE IDENTICAL REQUESTS AT THE SAME MOMENT (payment-service, 10 in parallel)
+[16:09:30] ==============================================================================
+[16:09:31] status codes: [201, 201, 201, 201, 201, 201, 201, 201, 201, 201]   distinct payment ids: 1   replayed responses: 9
+[16:09:31]   PASS  all 10 callers received the SAME payment
+[16:09:31]   PASS  1 request did the work, 9 were served the stored result
+[16:09:31]   PASS  gateway charge_calls=1 (must be 1)
+[16:09:33]   DB payments for this booking by state: [('CAPTURED', 1)]
+[16:09:33]   PASS  exactly ONE payment record exists for the booking
+
+[16:09:33] ==============================================================================
+[16:09:33] D. END TO END: 10 parallel 'Pay' clicks on one booking (booking-service -> payment-service)
+[16:09:33] ==============================================================================
+[16:09:35] status codes: [200, 200, 200, 200, 200, 200, 200, 200, 200, 200]
+[16:09:35]   PASS  all 10 responses: 200 CONFIRMED
+[16:09:35]   PASS  all 10 report the same payment_id {'006ce914-d129-4b84-ab9b-a03417765bdc'}
+[16:09:35]   PASS  gateway charge_calls=1 (must be 1)
+[16:09:35]   PASS  database shows a single CAPTURED payment
+[16:09:35]   PASS  member received exactly one SMS (got 1)
+[16:09:35] sequential repeat later:
+[16:09:35]   HTTP 200 {"id": "81190f36-bd04-47c1-9601-f691e3018c47", "state": "CONFIRMED", "payment_id": "006ce914-d129-4b84-ab9b-a03417765bdc"}
+[16:09:35]   PASS  a late repeat is also replayed, no new charge
+
+[16:09:35] ==============================================================================
+[16:09:35] E. Log evidence: replays are visible in payment-service's structured log
+[16:09:35] ==============================================================================
+[16:09:35] 0 'idempotent_replay' log lines (saved to evidence\challenge-2-idempotency\payment-service-replay-log-lines.txt); last 2:
+[16:09:35]   FAIL  replay events are logged
+
+[16:09:35] RESULT: 1 CHECK(S) FAILED
+[16:09:35] # transcript saved to evidence\challenge-2-idempotency\idempotency-20261102-160929.txt

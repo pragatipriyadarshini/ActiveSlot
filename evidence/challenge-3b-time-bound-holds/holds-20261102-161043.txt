@@ -1,0 +1,78 @@
+[16:10:44] $ python scripts/challenge3b_time_bound_holds.py
+[16:10:44] # started 2026-11-02T16:10:44+00:00
+
+[16:10:44] ==============================================================================
+[16:10:44] 1. Cancellation releases a held seat immediately
+[16:10:44] ==============================================================================
+[16:10:44] after booking X (unpaid)                   available=1 held=1 confirmed=0 consistent=True
+[16:10:44] cancel X -> HTTP 200 {"id": "96b273d3-fe43-4bda-82fc-3b1a5bd17a39", "state": "CANCELLED"}
+[16:10:44] after cancelling X                         available=2 held=0 confirmed=0 consistent=True
+[16:10:44]   PASS  seat returned to the pool at once
+
+[16:10:44] ==============================================================================
+[16:10:44] 2. Set up: A pays (permanent seat), B only holds (will expire)
+[16:10:44] ==============================================================================
+[16:10:46] A confirmed, B held                        available=0 held=1 confirmed=1 consistent=True
+[16:10:46]   PASS  1 confirmed + 1 held = full
+[16:10:46]   PASS  a third member is rejected: class full
+[16:10:46] B's hold expires at 2026-11-02T16:11:16Z (in 29s). Waiting for the automatic release ...
+[16:10:47]   ... 34s left
+[16:10:48]   ... 32s left
+[16:10:49]   ... 31s left
+[16:10:50]   ... 30s left
+[16:10:51]   ... 29s left
+[16:10:52]   ... 28s left
+[16:10:53]   ... 27s left
+[16:10:55]   ... 26s left
+[16:10:56]   ... 25s left
+[16:10:57]   ... 24s left
+[16:10:58]   ... 23s left
+[16:10:59]   ... 22s left
+[16:11:00]   ... 21s left
+[16:11:01]   ... 20s left
+[16:11:02]   ... 19s left
+[16:11:03]   ... 18s left
+[16:11:04]   ... 17s left
+[16:11:05]   ... 16s left
+[16:11:06]   ... 15s left
+[16:11:07]   ... 14s left
+[16:11:08]   ... 13s left
+[16:11:09]   ... 12s left
+[16:11:10]   ... 11s left
+[16:11:11]   ... 10s left
+[16:11:12]   ... 9s left
+[16:11:13]   ... 8s left
+[16:11:14]   ... 7s left
+[16:11:15]   ... 6s left
+[16:11:16]   ... 5s left
+[16:11:17]   ... 4s left
+[16:11:18]   ... 3s left
+[16:11:19]   ... 2s left
+[16:11:20]   ... 1s left
+[16:11:21]   ... 0s left
+[16:11:21]   ... 0s left
+[16:11:22]   ... 0s left
+
+[16:11:22] ==============================================================================
+[16:11:22] 3. After expiry: B's seat is back, A's paid seat was NOT touched
+[16:11:22] ==============================================================================
+[16:11:22] after expiry                               available=1 held=0 confirmed=1 consistent=True
+[16:11:22]   PASS  B's seat released, A's paid seat kept
+[16:11:22] booking B -> EXPIRED    booking A -> CONFIRMED
+[16:11:22]   PASS  B is EXPIRED, A is still CONFIRMED
+[16:11:22] B tries to pay late -> HTTP 409 {"error": {"code": "HOLD_EXPIRED", "message": "The seat hold has expired; please book again"}}
+[16:11:22]   PASS  late payment is refused (and nothing is charged)
+[16:11:22]   PASS  B can book again (BR3 only blocks ACTIVE bookings)
+
+[16:11:22] ==============================================================================
+[16:11:22] 4. The expiry job is safe to run twice, even at the same moment
+[16:11:22] ==============================================================================
+[16:11:23] one 1-second hold taken                    available=2 held=1 confirmed=0 consistent=True
+[16:11:24] 3 simultaneous manual runs released: [0, 0, 0]
+[16:11:26] after all runs                             available=3 held=0 confirmed=0 consistent=True
+[16:11:26]   PASS  the single expired hold was released at most once by the manual runs
+[16:11:26]   PASS  available_seats is 3, NOT 4: no double release
+[16:11:29]   DB seat_holds by state: [('EXPIRED', 1)]
+
+[16:11:29] RESULT: ALL CHECKS PASSED
+[16:11:29] # transcript saved to evidence\challenge-3b-time-bound-holds\holds-20261102-161043.txt
