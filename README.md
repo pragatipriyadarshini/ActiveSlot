@@ -1,316 +1,102 @@
-# FitSlot
+# FitSlot — fitness class booking system
 
-FitSlot is a microservices-based fitness class booking platform that demonstrates distributed system patterns through a realistic booking workflow.
+A CultFit-style application: members browse fitness classes, **hold a seat**, **pay**, get **confirmed**
+and receive an **SMS**.
 
-A member can:
+## Services
 
-- Browse available fitness classes
-- Reserve a seat
-- Complete payment
-- Receive a confirmation notification
+schedule-service -8001
+booking-service -8002
+payment-service -8003
+notification-service -8004
+mock-gateway -8005
 
-The project showcases:
+## Run it from a fresh clone
 
-- Seat reservation concurrency handling
-- Payment idempotency
-- Time-bound seat holds and expiration
-- Service-to-service communication
-- Failure handling and recovery
-- Database isolation between services
-
----
-
-## Architecture
-
-### Services
-
-| Service | Port | Responsibility |
-|----------|------|---------------|
-| Schedule Service | 8001 | Manages fitness classes, seat availability, and seat holds |
-| Booking Service | 8002 | Coordinates bookings, payments, and confirmations |
-| Payment Service | 8003 | Processes payments and prevents duplicate charges |
-| Notification Service | 8004 | Sends and records SMS notifications |
-| Mock Gateway | 8005 | Simulates payment and SMS providers |
-
-> PostgreSQL runs on port **5432** when using the database-backed deployment.
-
----
-
-## Booking Workflow
-
-The Booking Service orchestrates the complete reservation flow:
-
-1. Schedule Service places a seat hold.
-2. Payment Service processes the payment.
-3. Schedule Service confirms the seat reservation.
-4. Notification Service sends a confirmation SMS.
-
-Each service owns its own database and communicates exclusively through HTTP APIs. No service directly accesses another service's database.
-
-## Running Locally
-
-### Requirements
-
-- Python 3.10+
-- Docker 
-
-> Local mode uses SQLite and does not require Docker or PostgreSQL.
-
-### Create a Virtual Environment
-
-#### Windows
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
-```
-
-#### macOS / Linux
+Prerequisites: **Python 3.10+** and **Docker** (Docker only runs PostgreSQL). 
 
 ```bash
+# 1. Python environment (one venv for all services, tests and scripts)
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate            # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-```
 
----
-
-## Run with SQLite (No Docker)
-
-```powershell
-python scripts\run_all.py --sqlite
-```
-
-This starts all five services and stores data under: .data/
-The SQLite databases are recreated each time the launcher starts.
-
----
-
-## Run with PostgreSQL
-
-For database isolation checks and concurrency demonstrations:
-
+# 2. PostgreSQL with 4 databases and 4 separate users (see infra/postgres/init.sql)
 docker compose up -d
-docker compose ps
+docker compose ps                    # wait until "healthy"
 
-python scripts\run_all.py
-
-The included Docker Compose setup automatically:
-
-- Starts PostgreSQL on port **5432**
-- Creates separate databases for each service
-- Creates dedicated database users per service
----
-
-## Environment Configuration
-
-The launcher loads configuration from:
-
-```text
-services/<service>/.env
+# 3. Start the 4 services + mock gateway (logs go to logs/<service>.log)
+python scripts/run_all.py
 ```
 
-If `.env` is not found, it automatically falls back to:
+Leave that terminal running. In a **second terminal** (same venv) you can now:
 
-```text
-services/<service>/.env.example
+```bash
+python scripts/seed.py                       # a few demo classes; then open http://localhost:8002/docs
+python scripts/e2e_main_flow.py              # main transaction + failure paths
+python scripts/challenge1_concurrency.py     # Challenge 1: concurrency
+python scripts/challenge2_idempotency.py     # Challenge 2: idempotency
+python scripts/challenge3b_time_bound_holds.py   # Challenge 3B: time-bound holds (~40 s)
+python scripts/check_db_isolation.py         # each service user can only open its own database
 ```
 
-You can override settings for a single run:
+Each script prints PASS/FAIL per check and saves a timestamped transcript in `evidence/`.
 
-```powershell
-python scripts\run_all.py --set PAYMENT:LOG_LEVEL=DEBUG
+**Unit tests** (no running services needed; they use temporary SQLite files and fake upstreams):
+
+```bash
+cd services/schedule-service     && python -m pytest -q
+cd services/booking-service      && python -m pytest -q
+cd services/payment-service      && python -m pytest -q
+cd services/notification-service && python -m pytest -q
 ```
 
----
+**Quick mode without Docker:** `python scripts/run_all.py --sqlite` uses SQLite files in `.data/`.
+Everything works except the *naive-code race* in Challenge 1 phase A, which SQLite hides because it lets
+one writer in at a time. Collect final evidence on PostgreSQL.
 
-## API Documentation
+**Stop:** Ctrl+C in the first terminal, then `docker compose down` (add `-v` to wipe the data).
 
-After startup, open:
+### Ports and configuration (all via environment variables)
 
-- Booking Service: http://localhost:8002/docs
-- Schedule Service: http://localhost:8001/docs
-- Payment Service: http://localhost:8003/docs
-- Notification Service: http://localhost:8004/docs
+Each service reads its settings from the environment; `scripts/run_all.py` loads `services/<name>/.env`
+(or `.env.example` if there is no `.env`). Copy `.env.example` to `.env` to change something.
 
-Additional endpoints:
+schedule-service | 8001 | `DATABASE_URL`, `EXPIRY_SWEEP_INTERVAL_SECONDS` (5), `ENABLE_NAIVE_DEMO` (false) |
+booking-service | 8002 | `DATABASE_URL`, `SCHEDULE_SERVICE_URL`, `PAYMENT_SERVICE_URL`, `NOTIFICATION_SERVICE_URL`, `HOLD_SECONDS` (300), `*_TIMEOUT_SECONDS` |
+payment-service | 8003 | `DATABASE_URL`, `GATEWAY_URL`, `GATEWAY_TIMEOUT_SECONDS` (3), `IDEMPOTENCY_WAIT_SECONDS` (10) |
+notification-service | 8004 | `DATABASE_URL`, `PROVIDER_URL`, `PROVIDER_TIMEOUT_SECONDS` (2) |
+mock-gateway | 8005 | `PAYMENT_MODE`, `PAYMENT_DELAY_MS`, `SMS_MODE`, `SMS_DELAY_MS` |
 
-- `/docs` – Interactive Swagger UI
-- `/health` – Health check endpoint
+Common to all: `PORT`, `SERVICE_NAME`, `LOG_LEVEL`.
 
----
+### Every service provides
+* `GET /health`, versioned APIs under `/api/v1/...`, and Swagger UI at `/docs` (OpenAPI JSON at `/openapi.json`;
+  exported copies in `docs/openapi/`, regenerate with `python scripts/export_openapi.py`)
+* One error format: `{"error": {"code", "message", "correlation_id", "details"}}`
+* Structured JSON logs; the `X-Correlation-ID` header is created at the edge and forwarded on every
+  service-to-service call, so one booking can be followed across all four log files:
+  `grep <correlation-id> logs/*.log`
 
-## Stopping Services
+### API Calls
 
-Press:
+```bash
+SESSION=$(curl -s localhost:8001/api/v1/sessions | python -c "import sys,json;print(json.load(sys.stdin)[0]['id'])")
+BOOKING=$(curl -s -X POST localhost:8002/api/v1/bookings -H 'Content-Type: application/json' \
+  -d "{\"member_id\":\"member-1\",\"session_id\":\"$SESSION\"}" | python -c "import sys,json;print(json.load(sys.stdin)['id'])")
 
-```text
-Ctrl + C
+curl -s -X POST localhost:8002/api/v1/bookings/$BOOKING/pay -H 'Idempotency-Key: my-first-key'
+# make the gateway fail, then pay a second booking:
+curl -s -X PUT localhost:8005/admin/mode -H 'Content-Type: application/json' -d '{"payment_mode":"fail"}'
 ```
 
-in the launcher terminal.
+## Repository layout
 
-If PostgreSQL was started using Docker Compose:
-
-```powershell
-docker compose down
 ```
-
-To also remove stored database volumes:
-
-```powershell
-docker compose down -v
+README.md  docker-compose.yml  requirements-dev.txt
+docs/                 REPORT.md (report draft + diagrams), openapi/*.json, sample-runs/
+infra/postgres/       init-db.sh  (4 databases, 4 users)
+services/<name>/      app/ (api, business logic, models), tests/, requirements.txt, .env.example
+scripts/              run_all.py, e2e + challenge scripts, seed, db-isolation check, openapi export
+evidence/             one sub-folder per challenge (+ README linking files to claims)
 ```
-
----
-
-## Tests & Demo Scenarios
-
-With all services running, execute the following scripts:
-
-### Seed Sample Data
-
-```powershell
-python scripts\seed.py
-```
-
-### End-to-End Booking Flow
-
-```powershell
-python scripts\e2e_main_flow.py
-```
-
-### Concurrency Challenge
-
-```powershell
-python scripts\challenge1_concurrency.py
-```
-
-### Payment Idempotency Challenge
-
-```powershell
-python scripts\challenge2_idempotency.py
-```
-
-### Time-Bound Seat Hold Challenge
-
-```powershell
-python scripts\challenge3b_time_bound_holds.py
-```
-
-### Database Isolation Verification
-
-```powershell
-python scripts\check_db_isolation.py
-```
-
-All scripts generate timestamped outputs inside:
-
-```text
-evidence/
-```
-
-> For accurate concurrency and isolation demonstrations, use PostgreSQL. SQLite handles write concurrency differently and is intended primarily for local development.
-
----
-
-## Configuration Reference
-
-Each service reads configuration from environment variables.
-
-| Service > Key Settings |
-| Schedule > `DATABASE_URL`, `EXPIRY_SWEEP_INTERVAL_SECONDS`, `ENABLE_NAIVE_DEMO` 
-| Booking > `DATABASE_URL`, service URLs, `HOLD_SECONDS`, request timeouts 
-| Payment > `DATABASE_URL`, `GATEWAY_URL`, gateway timeout, idempotency wait settings 
-| Notification > `DATABASE_URL`, `PROVIDER_URL`, provider timeout 
-| Mock Gateway > Payment and SMS simulation settings 
-
-All services also support:
-
-```text
-PORT
-SERVICE_NAME
-LOG_LEVEL
-```
-
----
-
-## Project Structure
-
-```text
-ActiveSlot/
-│
-├── services/
-│   ├── schedule/
-│   ├── booking/
-│   ├── payment/
-│   ├── notification/
-│   └── mock_gateway/
-│
-├── scripts/
-├── docs/
-├── evidence/
-└── infra/
-```
-
-### Service Layout
-
-Each service follows a consistent structure:
-
-- `main.py` – API routes, request validation, startup configuration
-- `logic.py` – Core business logic
-- `models.py` – Database models and persistence
-- `common.py` – Shared utilities, logging, errors, and time helpers
-
-The Mock Gateway service uses only:
-
-- `main.py`
-- `common.py`
-
----
-
-## Supporting Directories
-
-### `scripts/`
-
-Contains:
-
-- Service launcher
-- Test and demo scenarios
-- Challenge scripts
-- OpenAPI exporter
-
-### `infra/postgres/`
-
-Contains:
-
-- `init.sql` for creating service databases and users
-
-### `docs/`
-
-Contains:
-
-- Exported OpenAPI specifications
-- Example outputs
-- Documentation assets
-
-### `evidence/`
-
-Contains:
-
-- Demo transcripts
-- Challenge outputs
-- Validation and testing artifacts
-
----
-
-## Key Design Principles
-
-- Service ownership of data
-- Database-per-service architecture
-- HTTP-based communication
-- Idempotent payment processing
-- Concurrent seat reservation handling
-- Time-limited reservation holds
-- Failure isolation and recovery
